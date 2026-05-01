@@ -1,0 +1,55 @@
+services:
+  api:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - pipeline_data:/data
+    environment:
+      DATABASE_URL: postgresql+psycopg2://pipeline:pipeline@db:5432/pipeline
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["python", "app.py"]
+
+  worker:
+    build: .
+    volumes:
+      - pipeline_data:/data
+    environment:
+      DATABASE_URL: postgresql+psycopg2://pipeline:pipeline@db:5432/pipeline
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["python", "worker.py"]
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: pipeline
+      POSTGRES_PASSWORD: pipeline
+      POSTGRES_DB: pipeline
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pipeline -d pipeline"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  redis:
+    image: redis:7
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 2s
+
+volumes:
+  pipeline_data:
